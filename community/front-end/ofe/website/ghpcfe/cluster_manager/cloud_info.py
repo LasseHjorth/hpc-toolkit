@@ -254,10 +254,11 @@ def get_region_zone_info(cloud_provider, credentials):
 
 def _get_gcp_subnets(credentials):
     (project, client) = _get_gcp_client(credentials)
-
+    entries = []
     req = client.subnetworks().listUsable(project=project)
     results = req.execute()
-    entries = results["items"]
+    if "items" in results:
+        entries = results["items"]
     subnets = []
     req = client.projects().getXpnHost(project=project)
     results = req.execute()
