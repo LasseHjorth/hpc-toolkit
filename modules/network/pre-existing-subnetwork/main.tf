@@ -16,10 +16,10 @@
 
 
 data "google_compute_subnetwork" "primary_subnetwork" {
-  name = try(var.subnetwork_name,null)
-  region = try(var.region,null)
-  project = try(var.host_project,null)
-  self_link = try(var.subnetwork_self_link,null)
+  name      = try(var.subnetwork_name, null)
+  region    = try(var.region, null)
+  project   = try(var.host_project, null)
+  self_link = try(var.subnetwork_self_link, null)
 
   lifecycle {
     postcondition {

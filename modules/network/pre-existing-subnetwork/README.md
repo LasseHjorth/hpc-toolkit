@@ -2,14 +2,9 @@
 
 This module is inspired by pre-existing-vpc, but is changed with the objective of supporting Shared VPCs.
 
-The module outputs are aligned with the [vpc module][vpc] so that it can be used
-as a drop-in substitute when a VPC already exists.
-
-For example, the blueprint below discovers the "default" global network and the
-"default" regional subnetwork in us-central1. With the `use` keyword, the
-[vm-instance] module accepts the `network_self_link` and `subnetwork_self_link`
-input variables that uniquely identify the network and subnetwork in which the
-VM will be created.
+For example, the blueprint below discovers the referred to subnetwork. 
+With the `use` keyword, the [vm-instance] module accepts the `subnetwork_self_link`
+input variables that uniquely identify the subnetwork in which the VM will be created.
 
 [vpc]: ../vpc/README.md
 [vm-instance]: ../../compute/vm-instance/README.md
@@ -35,6 +30,12 @@ VM will be created.
     name_prefix: example
     machine_type: c2-standard-4
 ```
+
+As described in documentation:
+[https://registry.terraform.io/providers/hashicorp/google/latest/docs/data-sources/compute_subnetwork]
+
+If subnetwork_self_link is provided then name,region,project is ignored.
+
 
 ## License
 
@@ -74,24 +75,21 @@ No modules.
 
 | Name | Type |
 |------|------|
-| [google_compute_network.vpc](https://registry.terraform.io/providers/hashicorp/google/latest/docs/data-sources/compute_network) | data source |
 | [google_compute_subnetwork.primary_subnetwork](https://registry.terraform.io/providers/hashicorp/google/latest/docs/data-sources/compute_subnetwork) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_host_project_id"></a> [host\_project\_id](#input\_host\_project\_id) | Project id of the host project | `string` | n/a | yes |
-| <a name="input_network_name"></a> [network\_name](#input\_network\_name) | Name of the existing Shared VPC network | `string` | n/a | yes |
-| <a name="input_subnetwork_self_link"></a> [subnetwork\_self\_link](#input\_subnetwork\_self\_link) | Self-link of the subnet in the Shared VPC | `string` | n/a | yes |
+| <a name="input_host_project"></a> [host\_project](#input\_host\_project) | Name of the project that owns the subnetwork | `string` | `null` | no |
+| <a name="input_region"></a> [region](#input\_region) | Region in which to search for primary subnetwork | `string` | `null` | no |
+| <a name="input_subnetwork_name"></a> [subnetwork\_name](#input\_subnetwork\_name) | Name of the pre-existing VPC subnetwork; defaults to var.network\_name if set to null. | `string` | `null` | no |
+| <a name="input_subnetwork_self_link"></a> [subnetwork\_self\_link](#input\_subnetwork\_self\_link) | Self-link of the subnet in the Shared VPC | `string` | `null` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| <a name="output_network_id"></a> [network\_id](#output\_network\_id) | ID of the existing VPC network |
-| <a name="output_network_name"></a> [network\_name](#output\_network\_name) | Name of the existing VPC network |
-| <a name="output_network_self_link"></a> [network\_self\_link](#output\_network\_self\_link) | Self link of the existing VPC network |
 | <a name="output_subnetwork"></a> [subnetwork](#output\_subnetwork) | Full subnetwork object in the primary region |
 | <a name="output_subnetwork_address"></a> [subnetwork\_address](#output\_subnetwork\_address) | Subnetwork IP range in the primary region |
 | <a name="output_subnetwork_name"></a> [subnetwork\_name](#output\_subnetwork\_name) | Name of the subnetwork in the primary region |
