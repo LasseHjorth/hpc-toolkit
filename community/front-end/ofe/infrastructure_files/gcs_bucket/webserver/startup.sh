@@ -45,6 +45,12 @@ setenforce 0
 sed -i -e 's/SELINUX=enforcing/SELINUX=permissive/g' /etc/selinux/config
 
 printf "####################\n#### Installing required packages\n####################\n"
+if [ -f "/etc/redhat-release" ]; then
+  grep -q 'Red Hat Enterprise Linux release 8' /etc/redhat-release
+  if [ "$?" == "0" ]; then
+    dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+  fi
+fi
 dnf install -y epel-release
 dnf update -y --security
 dnf config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
