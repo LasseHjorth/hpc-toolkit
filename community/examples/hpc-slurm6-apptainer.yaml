@@ -17,17 +17,17 @@
 # See instructions at
 # https://github.com/GoogleCloudPlatform/hpc-toolkit/tree/main/examples#image-builderyaml-
 
-blueprint_name: image-builder-v6
+blueprint_name: hpc-slurm6-apptainer
 
 vars:
   project_id:  ## Set GCP Project ID Here ##
-  deployment_name: image-builder-v6-001
+  deployment_name: slurm6-apptainer
   region: us-central1
   zone: us-central1-c
   custom_image:
-    family: my-slurm-image
+    family: apptainer-enabled
     project: $(vars.project_id)
-  disk_size: 32
+  disk_size: 64
 
 # Documentation for each of the modules used below can be found at
 # https://github.com/GoogleCloudPlatform/hpc-toolkit/blob/main/modules/README.md
@@ -43,14 +43,15 @@ deployment_groups:
     settings:
       runners:
       - type: shell
-        destination: generate_hello.sh
+        destination: install_apptainer.sh
         content: |
           #!/bin/sh
-          echo "Hello World" > /home/hello.txt
+          dnf install -y epel-release
+          dnf install -y apptainer
 
 - group: packer
   modules:
-  - id: custom-image
+  - id: apptainer-enabled-image
     source: modules/packer/custom-image
     kind: packer
     use:
@@ -89,6 +90,7 @@ deployment_groups:
     source: community/modules/scheduler/schedmd-slurm-gcp-v6-login
     use: [network]
     settings:
+      name_prefix: login
       enable_login_public_ips: true
       disk_size_gb: $(vars.disk_size)
       instance_image: $(vars.custom_image)
