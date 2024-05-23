@@ -1,0 +1,154 @@
+# Copyright 2022 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+---
+
+blueprint_name: rhel-slurm-hpc
+
+vars:
+  project_id: dvt-lasse-sandbox-hpc2
+  deployment_name: hpc-slurm
+  region: europe-west4
+  zone: europe-west4-a
+  instance_image_custom: True
+  instance_image:
+    family: slurm-gcp-next-rhel-8
+    project: dvt-lasse-hpc-development
+
+
+# Documentation for each of the modules used below can be found at
+# https://github.com/GoogleCloudPlatform/hpc-toolkit/blob/main/modules/README.md
+
+deployment_groups:
+- group: primary
+  modules:
+  # Source is an embedded module, denoted by "modules/*" without ./, ../, /
+  # as a prefix. To refer to a local module, prefix with ./, ../ or /
+  # Example - ./modules/network/vpc
+  - id: network
+    source: modules/network/pre-existing-subnetwork
+    settings:
+      subnetwork_self_link: https://www.googleapis.com/compute/v1/projects/dvt-lasse-vpc2/regions/europe-west4/subnetworks/hpc
+
+  - id: homefs
+    source: modules/file-system/filestore
+#    use: [network]
+    settings:
+      local_mount: /home
+      network_id: projects/dvt-lasse-vpc2/global/networks/vpc2
+      connect_mode: PRIVATE_SERVICE_ACCESS
+  - id: hpc_service_account
+    source: community/modules/project/service-account
+    kind: terraform
+    settings:
+      name: hpc-controller
+      project_roles:
+      - compute.instanceAdmin.v1
+      - iam.serviceAccountUser
+      - monitoring.metricWriter
+      - logging.logWriter
+      - storage.objectAdmin
+      - pubsub.admin
+      - compute.securityAdmin
+      - iam.serviceAccountAdmin
+      - resourcemanager.projectIamAdmin
+      - compute.networkAdmin
+
+  - id: hpc_node_service_account
+    source: community/modules/project/service-account
+    kind: terraform
+    settings:
+      name: hpc-nodes
+      project_roles: []
+
+  - id: debug_nodeset
+    source: community/modules/compute/schedmd-slurm-gcp-v6-nodeset
+    use: [network]
+    settings:
+      node_count_dynamic_max: 4
+      machine_type: n2-standard-2
+      enable_placement: false # the default is: true
+      service_account_email: $(hpc_node_service_account.service_account_email)
+
+  - id: debug_partition
+    source: community/modules/compute/schedmd-slurm-gcp-v6-partition
+    use:
+    - debug_nodeset
+    settings:
+      partition_name: debug
+      exclusive: false # allows nodes to stay up after jobs are done
+      is_default: true
+
+  - id: compute_nodeset
+    source: community/modules/compute/schedmd-slurm-gcp-v6-nodeset
+    use: [network]
+    settings:
+      node_count_dynamic_max: 20
+      bandwidth_tier: gvnic_enabled
+      service_account_email: $(hpc_node_service_account.service_account_email)
+
+
+  - id: compute_partition
+    source: community/modules/compute/schedmd-slurm-gcp-v6-partition
+    use:
+    - compute_nodeset
+    settings:
+      partition_name: compute
+
+  - id: h3_nodeset
+    source: community/modules/compute/schedmd-slurm-gcp-v6-nodeset
+    use: [network]
+    settings:
+      node_count_dynamic_max: 20
+      machine_type: h3-standard-88
+      # H3 does not support pd-ssd and pd-standard
+      # https://cloud.google.com/compute/docs/compute-optimized-machines#h3_disks
+      disk_type: pd-balanced
+      bandwidth_tier: gvnic_enabled
+      service_account_email: $(hpc_node_service_account.service_account_email)
+      zone: europe-west4-b
+
+
+  - id: h3_partition
+    source: community/modules/compute/schedmd-slurm-gcp-v6-partition
+    use:
+    - h3_nodeset
+    settings:
+      partition_name: h3
+
+  - id: slurm_login
+    source: community/modules/scheduler/schedmd-slurm-gcp-v6-login
+    use: [network]
+    settings:
+      machine_type: n2-standard-4
+      enable_login_public_ips: false
+      enable_shielded_vm: true
+      shielded_instance_config:
+        enable_integrity_monitoring: false
+        enable_secure_boot: false
+        enable_vtpm: false
+  - id: slurm_controller
+    source: community/modules/scheduler/schedmd-slurm-gcp-v6-controller
+    use:
+    - network
+    - debug_partition
+    - compute_partition
+    - h3_partition
+    - homefs
+    - slurm_login
+    settings:
+      enable_controller_public_ips: false
+      service_account_email: $(hpc_service_account.service_account_email)
+      service_account_scopes:
+      - https://www.googleapis.com/auth/cloud-platform
