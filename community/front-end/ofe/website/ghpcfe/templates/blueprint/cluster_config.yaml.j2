@@ -10,6 +10,11 @@ vars:
   enable_cleanup_subscriptions: True
   enable_bigquery_load: {{ cluster.use_bigquery }}
   instance_image_custom: True
+  instance_image:
+    family: slurm-gcp-5-10-hpc-rocky-linux-8
+    project: schedmd-slurm-public
+  controller_startup_scripts_timeout: 900
+  compute_startup_scripts_timeout: 900
   labels:
     created_by: {{ site_name }}
 
@@ -67,9 +72,14 @@ deployment_groups:
       controller_startup_script: |
         #!/bin/bash
         echo "******************************************** CALLING CONTROLLER STARTUP"
+        systemctl stop dnf-automatic.timer
+        systemctl disable dnf-automatic.timer 
+        systemctl mask dnf-automatic.timer  
         gsutil cp gs://{{ startup_bucket }}/clusters/{{ cluster.id }}/bootstrap_controller.sh - | bash
+        systemctl start dnf-automatic.timer
       compute_startup_script: |
         #!/bin/bash
+        systemctl stop dnf-automatic.timer
         gsutil cp gs://{{ startup_bucket }}/clusters/{{ cluster.id }}/bootstrap_compute.sh - | bash
     use:
 {{ controller_uses | safe }}
@@ -94,6 +104,9 @@ deployment_groups:
       startup_script: |
         #!/bin/bash
         echo "******************************************** CALLING LOGIN STARTUP"
+        systemctl stop dnf-automatic.timer
         gsutil cp gs://{{ startup_bucket }}/clusters/{{ cluster.id }}/bootstrap_login.sh - | bash
+        systemctl start dnf-automatic.timer
+
     use:
     - slurm_controller
